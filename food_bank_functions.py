@@ -32,7 +32,34 @@ def waterfilling_sorted(d,b):
     return allocations
 
 
-# In[4]:
+## Water-filling Algorithm for sorted demands and weights for bucket width
+def waterfilling_sorted_weights(demands, weights,budget,index, width):
+    #print(demands, weights,budget,index, width)
+    n = np.size(demands)
+    allocations = np.zeros(n)
+    budget_remaining = budget
+    weight_index = 0
+    equal_allocation = budget_remaining/(width+1)
+    index_found = False
+    curr_weight = 1
+    for i in range(n):
+        if demands[i]<equal_allocation:
+            allocations[i] = budget_remaining if i==n-1 else demands[i]
+        else:
+            allocations[i] = equal_allocation
+        if i!=index:
+            budget_remaining -= allocations[i]*weights[weight_index]*width
+            curr_weight -= weights[weight_index]   
+            weight_index+=1
+        else:
+            budget_remaining -= allocations[i]
+            index_found = True
+        if i!=n-1:
+            if index_found:
+                equal_allocation = budget_remaining/(width*curr_weight)
+            else: 
+                equal_allocation = budget_remaining/(width*curr_weight+1)
+    return allocations
 
 
 ## Water-filling Algorithm for general demands
@@ -152,9 +179,9 @@ def insert_sorted(lst, element):
     n = np.size(lst)
     if n==0:
         return np.array([element]),0
-    if element<lst[0]:
+    if element<=lst[0]:
         return np.append(element,lst),0
-    if element>lst[n-1]:
+    if element>=lst[n-1]:
         return np.append(lst,element),n
     left = 0
     right = n-1
@@ -227,7 +254,21 @@ assert list(waterfilling_dynamic(np.array([4,5,3,6]), np.array([9,10,2,1]), 15))
 assert list(waterfilling_dynamic(np.array([4,5,3,6]), np.array([9,10,2,1]), 30)) == [9,10,2,9]
 
 
-# In[ ]:
+## Waterfilling using weighted bars
+def waterfilling_weights(weights, sorted_distribution, demands_realized, budget):
+    n = np.size(demands_realized)
+    distribution_size = np.size(sorted_distribution)
+    distribution_weighted = weights*sorted_distribution
+    allocations = np.zeros(n)
+    budget_remaining = budget
+    for i in range(n):
+        new_sorted_list,index = insert_sorted(sorted_distribution,demands_realized[i])
+        if i<n-1 :
+            allocations[i] = min((waterfilling_sorted_weights(new_sorted_list, weights,budget_remaining,index,n-i-1))[index],demands_realized[i])
+        else:
+            allocations[i] = budget_remaining
+        budget_remaining -= allocations[i]
+    return allocations
 
 
 ## Dynamic waterfilling algorithm that is more optimistic about town it is currently visiting than future towns
@@ -302,6 +343,12 @@ def objective_nash_log(demands, allocation):
     return welfare_sum
 
 
+def objective_nash_log_vector(demands, allocation):
+    n = np.size(demands)
+    welfare_vector = np.zeros(n)
+    for i in range(n):
+        welfare_vector[i] = np.log(min(1,allocation[i]/demands[i]))
+    return welfare_vector
 # In[ ]:
 
 
@@ -334,12 +381,12 @@ def objective_sum(demands, allocation):
 # In[16]:
 
 
-def make_demands_uniform_distribution(num_towns, demand_ranges):
+def make_demands_uniform_distribution(num_towns, demand_means):
     demands = np.zeros(num_towns)
     expected_demands = np.zeros(num_towns)
     for i in range(num_towns):
-        demands[i] = np.random.uniform(0, demand_ranges[i])
-        expected_demands[i] = demand_ranges[i]/2
+        demands[i] = np.random.uniform(0, 2*demand_means[i])
+        expected_demands[i] = demand_means[i]
     return demands, expected_demands
 
 
@@ -347,10 +394,30 @@ def make_demands_gaussian_distribution(num_towns, demand_means):
     demands = np.zeros(num_towns)
     expected_demands = np.zeros(num_towns)
     for i in range(num_towns):
-        demands[i] = np.random.normal(demand_means[i], demand_means[i]/5)
+        demands[i] = max(np.random.normal(demand_means[i], 2), 0.1)
+    return demands, demand_means
+
+def make_demands_gaussian_dynamic(num_towns, demand_means):
+    demands = np.zeros(num_towns)
+    expected_demands = np.zeros(num_towns)
+    for i in range(num_towns):
+        demands[i] = max(np.random.normal(demand_means[i],4-3*(i+1)/num_towns),0.1)
+    return demands, demand_means
+
+def make_demands_gaussian_dynamic_backward(num_towns, demand_means):
+    demands = np.zeros(num_towns)
+    expected_demands = np.zeros(num_towns)
+    for i in range(num_towns):
+        demands[i] = max(np.random.normal(demand_means[i],4-3*(num_towns-i-1)/num_towns),0.1)
     return demands, demand_means
 
 
+def make_demands_gaussian_dynamic_pessimistic(num_towns, demand_means):
+    demands = np.zeros(num_towns)
+    expected_demands = np.zeros(num_towns)
+    for i in range(num_towns):
+        demands[i] = max(np.random.normal(demand_means[i] - 2*i/num_towns,4-3*(i+1)/num_towns),0.1)
+    return demands, demand_means
 # In[17]:
 
 
@@ -362,3 +429,9 @@ def make_demands_exponential_distribution(num_towns, demand_means):
         expected_demands[i] = demand_means[i]
     return demands, expected_demands
 
+
+def make_demands_exponential_distribution_int(num_towns, demand_means):
+    demands = np.zeros(num_towns)
+    for i in range(num_towns):
+        demands[i] = int(np.random.exponential(demand_means[i]))+1
+    return demands, demand_means
