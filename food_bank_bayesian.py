@@ -58,3 +58,13 @@ def bayes_opt(n, budget, b_grid, grid_size):
     return opt_policy, v_fn
 
 
+def waterfilling_bayesian(demands, opt_policy, budget, b_grid, grid_size):
+    #print(demands, weights,budget,index, width)
+    n = np.size(demands)
+    allocations = np.zeros(n)
+    budget_remaining = budget
+    for i in range(n):
+        index = int(np.floor(budget_remaining/grid_size))
+        allocations[i] = policy(opt_policy[i,index], budget_remaining, demands[i])
+        budget_remaining -= allocations[i]
+    return allocations
