@@ -319,7 +319,77 @@ def waterfilling_online_3(demands_predicted, demands_realized, b):
         bundle_remaining -= allocations[i]
     return allocations
 
+## O(n^2) version of online algorithm that needs waterfilling evaluated multiple times and budget over-estimated at first
+def waterfilling_dynamic_budget_opt(demands_predicted, demands_realized, b, factor):
+    n = np.size(demands_predicted)
+    sorted_demands = np.sort(demands_predicted)
+    allocations = np.zeros(n)
+    bundle_remaining = b
+    for i in range(n):
+        sorted_demands = delete_sorted(sorted_demands, demands_predicted[i])
+        new_sorted_list,index = insert_sorted(sorted_demands,demands_realized[i])
+        if i<n-1:
+            potential_alloc = min((waterfilling_sorted(new_sorted_list, bundle_remaining+factor*(n-i-1)/n))[index],demands_realized[i])
+            if potential_alloc>=bundle_remaining:
+                allocations[i] = min((waterfilling_sorted(new_sorted_list, bundle_remaining))[index],demands_realized[i])
+            else:
+                allocations[i] = potential_alloc
+        else:
+            allocations[i] = bundle_remaining
+        bundle_remaining -= allocations[i]
+    return allocations
+    
+    
+## budget underestimated at first, and overestimated at end.
+def waterfilling_weights_budget_adjust(weights, sorted_distribution, demands_realized, budget,factor_pess, factor_opt, turn):
+    n = np.size(demands_realized)
+    distribution_size = np.size(sorted_distribution)
+    distribution_weighted = weights*sorted_distribution
+    allocations = np.zeros(n)
+    budget_remaining = budget
+    turning_point = int(turn*n)
+    for i in range(turning_point):
+        new_sorted_list,index = insert_sorted(sorted_distribution,demands_realized[i])
+        if i<n-1 :
+            if factor_pess*(n-i-1)/n<budget_remaining:
+                allocations[i] = min((waterfilling_sorted_weights(new_sorted_list, weights,budget_remaining-factor_pess*(n-i-1)/n,index,n-i-1))[index],demands_realized[i])
+            else:
+                allocations[i] = min((waterfilling_sorted_weights(new_sorted_list, weights,budget_remaining,index,n-i-1))[index],demands_realized[i])
+        else:
+            allocations[i] = budget_remaining
+        budget_remaining -= allocations[i]
+        
+    for i in range(turning_point,n):
+        new_sorted_list,index = insert_sorted(sorted_distribution,demands_realized[i])
+        if i<n-1 :
+            potential_alloc = min((waterfilling_sorted_weights(new_sorted_list, weights,budget_remaining+factor_opt*(n-i-1)/n,index,n-i-1))[index],demands_realized[i])
+            if potential_alloc>=budget_remaining:
+                allocations[i] = min((waterfilling_sorted(new_sorted_list, budget_remaining))[index],demands_realized[i])
+            else:
+                allocations[i] = potential_alloc
+        else:
+            allocations[i] = budget_remaining
+        budget_remaining -= allocations[i]
+    return allocations
 
+## O(n^2) version of online algorithm that needs waterfilling evaluated multiple times and budget under-estimated at first
+def waterfilling_weights_budget_pess(weights, sorted_distribution, demands_realized, budget,factor):
+    n = np.size(demands_realized)
+    distribution_size = np.size(sorted_distribution)
+    distribution_weighted = weights*sorted_distribution
+    allocations = np.zeros(n)
+    budget_remaining = budget
+    for i in range(n):
+        new_sorted_list,index = insert_sorted(sorted_distribution,demands_realized[i])
+        if i<n-1 :
+            if factor*(n-i-1)/n<budget_remaining:
+                allocations[i] = min((waterfilling_sorted_weights(new_sorted_list, weights,budget_remaining-factor*(n-i-1)/n,index,n-i-1))[index],demands_realized[i])
+            else:
+                allocations[i] = min((waterfilling_sorted_weights(new_sorted_list, weights,budget_remaining,index,n-i-1))[index],demands_realized[i])
+        else:
+            allocations[i] = budget_remaining
+        budget_remaining -= allocations[i]
+    return allocations
 # In[14]:
 
 
