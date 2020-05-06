@@ -399,6 +399,14 @@ assert list(np.around(waterfilling_online_3(np.array([1,2,3,4]), np.array([5,5,5
 assert list(waterfilling_online_3(np.array([4,5,3,6]), np.array([2,1,8,6]), 15)) == [2,1,6,6]
 assert list(waterfilling_online_3(np.array([4,5,3,6]), np.array([9,10,2,1]), 15)) == [4,4,2,5]
 
+# vector returning the maximum envy every town feels
+def envy(allocation, demands):
+    n = np.size(demands)
+    allocation_max = np.amax(allocation)
+    envy = np.zeros(n)
+    for i in range(n):
+        envy[i] = min(demands[i]-allocation[i],allocation_max-allocation[i])
+    return envy
 
 # ## Objective Functions
 
