@@ -31,6 +31,19 @@ def waterfilling_sorted(d,b):
         bundle_remaining -= allocations[i]
     return allocations
 
+## Water-filling Algorithm for sorted demands
+def waterfilling_sorted_waste(d,b):
+    n = np.size(d)
+    allocations = np.zeros(n)
+    bundle_remaining = b
+    for i in range(n):
+        equal_allocation = bundle_remaining/(n-i)
+        if d[i]<equal_allocation:
+            allocations[i] = d[i]
+        else:
+            allocations[i] = equal_allocation
+        bundle_remaining -= allocations[i]
+    return allocations
 
 ## Water-filling Algorithm for sorted demands and weights for bucket width
 def waterfilling_sorted_weights(demands, weights,budget,index, width):
@@ -61,6 +74,35 @@ def waterfilling_sorted_weights(demands, weights,budget,index, width):
                 equal_allocation = budget_remaining/(width*curr_weight+1)
     return allocations
 
+## Water-filling Algorithm for sorted demands and weights for bucket width
+def waterfilling_sorted_weights_waste(demands, weights,budget,index, width):
+    #print(demands, weights,budget,index, width)
+    n = np.size(demands)
+    allocations = np.zeros(n)
+    budget_remaining = budget
+    weight_index = 0
+    equal_allocation = budget_remaining/(width+1)
+    index_found = False
+    curr_weight = 1
+    for i in range(n):
+        if demands[i]<equal_allocation:
+            allocations[i] = demands[i]
+        else:
+            allocations[i] = equal_allocation
+        if i!=index:
+            budget_remaining -= allocations[i]*weights[weight_index]*width
+            curr_weight -= weights[weight_index]   
+            weight_index+=1
+        else:
+            budget_remaining -= allocations[i]
+            index_found = True
+        if i!=n-1:
+            if index_found:
+                equal_allocation = budget_remaining/(width*curr_weight)
+            else: 
+                equal_allocation = budget_remaining/(width*curr_weight+1)
+    return allocations
+
 
 ## Water-filling Algorithm for general demands
 def waterfilling(d,b):
@@ -73,6 +115,16 @@ def waterfilling(d,b):
         allocations[sorted_indices[i]] = sorted_allocations[i]
     return allocations
 
+## Water-filling Algorithm for general demands
+def waterfilling_waste(d,b):
+    n = np.size(d)
+    sorted_indices = np.argsort(d)
+    sorted_demands = np.sort(d)
+    sorted_allocations = waterfilling_sorted_waste(sorted_demands, b)
+    allocations = np.zeros(n)
+    for i in range(n):
+        allocations[sorted_indices[i]] = sorted_allocations[i]
+    return allocations
 
 # In[5]:
 
@@ -236,7 +288,18 @@ def waterfilling_dynamic(demands_predicted, demands_realized, b):
         bundle_remaining -= allocations[i]
     return allocations
     
-
+## O(n^2) version of online algorithm that needs waterfilling evaluated multiple times
+def waterfilling_dynamic_waste(demands_predicted, demands_realized, b):
+    n = np.size(demands_predicted)
+    sorted_demands = np.sort(demands_predicted)
+    allocations = np.zeros(n)
+    bundle_remaining = b
+    for i in range(n):
+        sorted_demands = delete_sorted(sorted_demands, demands_predicted[i])
+        new_sorted_list,index = insert_sorted(sorted_demands,demands_realized[i])
+        allocations[i] = min((waterfilling_sorted(new_sorted_list, bundle_remaining))[index],demands_realized[i])
+        bundle_remaining -= allocations[i]
+    return allocations
 
 # In[19]:
 
@@ -267,6 +330,22 @@ def waterfilling_weights(weights, sorted_distribution, demands_realized, budget)
             allocations[i] = min((waterfilling_sorted_weights(new_sorted_list, weights,budget_remaining,index,n-i-1))[index],demands_realized[i])
         else:
             allocations[i] = budget_remaining
+        budget_remaining -= allocations[i]
+    return allocations
+
+## Waterfilling using weighted bars
+def waterfilling_weights_waste(weights, sorted_distribution, demands_realized, budget):
+    n = np.size(demands_realized)
+    distribution_size = np.size(sorted_distribution)
+    distribution_weighted = weights*sorted_distribution
+    allocations = np.zeros(n)
+    budget_remaining = budget
+    for i in range(n):
+        new_sorted_list,index = insert_sorted(sorted_distribution,demands_realized[i])
+        if i<n-1 :
+            allocations[i] = min((waterfilling_sorted_weights_waste(new_sorted_list, weights,budget_remaining,index,n-i-1))[index],demands_realized[i])
+        else:
+            allocations[i] = min(budget_remaining,demands_realized[i])
         budget_remaining -= allocations[i]
     return allocations
 
@@ -399,17 +478,98 @@ assert list(np.around(waterfilling_online_3(np.array([1,2,3,4]), np.array([5,5,5
 assert list(waterfilling_online_3(np.array([4,5,3,6]), np.array([2,1,8,6]), 15)) == [2,1,6,6]
 assert list(waterfilling_online_3(np.array([4,5,3,6]), np.array([9,10,2,1]), 15)) == [4,4,2,5]
 
+def greedy(demands_realized,budget):
+    n = np.size(demands_realized)
+    allocations = np.zeros(n)
+    budget_remaining = budget
+    index = 0
+    while(budget_remaining>0 and index<n):
+        if demands_realized[index]<budget_remaining:
+            allocations[index] = demands_realized[index]
+        else:
+            allocations[index] = budget_remaining
+        budget_remaining -= allocations[index]
+        index+=1
+    return allocations
+
+def constant_threshold(demands_realized,budget,threshold):
+    n = np.size(demands_realized)
+    allocations = np.zeros(n)
+    budget_remaining = budget
+    for i in range(n):
+        if demands_realized[i]<threshold:
+            allocations[i] = min(budget_remaining,demands_realized[i])
+        else:
+            allocations[i] = min(budget_remaining,threshold)
+        budget_remaining -= allocations[i]
+    return allocations
+
 # vector returning the maximum envy every town feels
-def envy(allocation, demands):
+def envy_vector(allocation, demands):
     n = np.size(demands)
     allocation_max = np.amax(allocation)
     envy = np.zeros(n)
     for i in range(n):
-        envy[i] = min(demands[i]-allocation[i],allocation_max-allocation[i])
+        envy[i] = max(min(demands[i]-allocation[i],allocation_max-allocation[i]),0)
     return envy
 
+def excess(allocation, budget):
+    return budget-np.sum(allocation)
+
+def proportionality(allocation,demands, budget):
+    n = np.size(demands)
+    prop = budget/n
+    max_prop = np.zeros(n)
+    for i in range(n):
+        if allocation[i]<demands[i]:
+            max_prop[i] = max(0,min(prop-allocation[i],demands[i]-allocation[i]))
+    return max_prop
+
+def envy_utility(allocation, demands):
+    n = np.size(demands)
+    allocation_max = np.amax(allocation)
+    envy = np.zeros(n)
+    for i in range(n):
+        envy[i] = min(1,allocation_max/demands[i]) - min(1,allocation[i]/demands[i])
+    return envy
+
+def proportionality_utility(allocation,demands, budget):
+    n = np.size(demands)
+    prop = budget/n
+    max_prop = np.zeros(n)
+    for i in range(n):
+        if allocation[i]<demands[i]:
+            max_prop[i] = max(min(1,prop/demands[i]) - min(1,allocation[i]/demands[i]),0)
+    return max_prop
 # ## Objective Functions
 
+demands1 = np.array([1,2,1,2,1])
+demands2 = np.array([1,1,1,1,1])
+demands3 = np.array([2,2,2,2,2])
+demands4 = np.array([2,2,1,1,1])
+demands4 = np.array([1,1,2,2,2])
+demands4 = np.array([2,1,2,1,2])
+budget = 7.5
+
+assert list(envy_vector(np.array([1,1,1,1,1]),demands1)) == [0,0,0,0,0]
+assert list(envy_vector(demands1,demands1)) == [0,0,0,0,0]
+assert list(envy_vector(np.array([1,1,1,2,1]),demands1)) == [0,1,0,0,0]
+assert list(envy_vector(np.array([1,1,1,2,0]),demands1)) == [0,1,0,0,1]
+assert list(envy_vector(np.array([0,0,0,0,5]),demands1)) == [1,2,1,2,0]
+assert list(envy_vector(np.array([2,2,2,2,2]),demands1)) == [0,0,0,0,0]
+#############
+assert list(proportionality(np.array([1,2,1,2,1]),demands1,budget)) == [0,0,0,0,0]
+assert list(proportionality(np.array([1,1,1,1,1]),demands1,budget)) == [0,0.5,0,0.5,0]
+assert list(np.around(proportionality(np.array([1.8,1.7,1.6,1.4,1]),demands3,budget),2)) == [0,0,0,0.1,0.5]
+assert list(proportionality(np.array([1.5,1.5,1.5,1.5,1.5]),demands1,budget)) == [0,0,0,0,0]
+assert list(np.around(proportionality(np.array([0.7,1,0.7,1,0.7]),demands1,budget),2)) == [0.3,0.5,0.3,0.5,0.3]
+assert list(proportionality(np.array([0,0,0,0,200]),demands1,1000)) == [1,2,1,2,0]
+assert list(proportionality(np.array([2,2,2,2,50]),demands1,budget)) == [0,0,0,0,0]
+assert list(np.around(proportionality(np.array([1.8,1.7,1.6,1.4,1]),np.array([2,2,2,2,1]),budget),2)) == [0,0,0,0.1,0]
+##############
+assert excess(np.array([1,1,1,1,1]),10) == 5
+assert excess(np.array([1,1,1,1,1]),1) == -4
+assert excess(np.array([1,1,1,1,1]),5) == 0
 # In[15]:
 
 
@@ -420,6 +580,12 @@ def objective_nash_log(demands, allocation):
         welfare_sum += np.log(min(1,allocation[i]/demands[i]))
     return welfare_sum
 
+def objective_nash_log_normalized(demands, allocation):
+    welfare_sum = 0
+    n = np.size(demands)
+    for i in range(n):
+        welfare_sum += np.log(min(1,allocation[i]/demands[i]))
+    return welfare_sum/n
 
 def objective_nash_log_vector(demands, allocation):
     n = np.size(demands)
