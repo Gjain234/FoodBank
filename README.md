@@ -1,9 +1,9 @@
 # Food Bank
-This repository contains a reference implementation for the waterfilling algorithms for fair allocation of resources in online settings with only distribution data on demands. 
+This repository contains a reference implementation for the waterfilling algorithms for fair allocation of resources in online settings with only distribution data on demands.
 
 ### Dependencies
 The code has been tested in `Python 3` and depends on a number of Python
-packages. 
+packages.
 
 * numpy
 * matplotlib
@@ -24,4 +24,3 @@ These files found in `simulations/` run experiments with different demand distri
 Use the files in `figures/` to build figures for the saved data.
 
 Each file has parameters at the top which can be changed in order to replicate the parameters considered for each experiment in the paper.
-
